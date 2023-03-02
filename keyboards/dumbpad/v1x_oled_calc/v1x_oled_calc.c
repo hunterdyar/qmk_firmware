@@ -46,7 +46,7 @@ double buffA = 0;
 char operator = ' ';
 double buffB = 0;
 double* currentBuffer = &buffB;
-double lastAnswer;
+double answer;
 char aLine [16];
 char bLine [16];
 char oLine [16];
@@ -65,24 +65,24 @@ void clear(void)
     buffB = 0;
     operator = ' ';
     currentBuffer = &buffB;
-    lastAnswer = 0;
+    answer = 0;
 }
 
 void calculate(void)
 {
     if(operator == '+')
     {
-        lastAnswer = buffA + buffB;
+        answer = buffA + buffB;
     }else if(operator == '*')
     {
-        lastAnswer = buffA * buffB;
+        answer = buffA * buffB;
     }else if(operator == '-')
     {
-        lastAnswer = buffA - buffB;
+        answer = buffA - buffB;
     }else if(operator == '/')
     {
         if(buffB != 0){
-            lastAnswer = buffA / buffB;
+            answer = buffA / buffB;
         }else{
             clear();
             return;
@@ -90,36 +90,38 @@ void calculate(void)
     } if(operator == ' ')
     {
         buffA = buffB;
-        lastAnswer = buffB;
+        answer = buffB;
         buffB = 0;
-        operator = ' ';
         return;
     }
 
-    buffA = lastAnswer;
+    buffA = answer;
     buffB = 0;
     operator = ' ';
 }
 void setOperator(char newOp)
 {
-    if(operator == ' ')
-    {
-        operator = newOp;
-        //not actual math, more like... shifting it up?
-        buffA = buffB;
-        lastAnswer = buffB;
+    if(operator != ' '){
+        calculate();
+        buffA = answer;
         buffB = 0;
-        // calculate();
-        return;
-    }else{
-
-        //chaining calculations together vs. just hitting enter.
-        if(lastKeycode != KC_KP_ENTER){
-            calculate();
-            buffA = lastAnswer;
+    }else if(newOp != ' '){
+        //doing an operation, hitting enter (op becomes ' '), then hitting another op - should fill a with the answer value and prepare to type into B.
+        //BUT typing a value and JUST hitting = with no operation should shift that value (b) into answer, and 0 into a. thats in Calculate().
+        if(lastKeycode == KC_KP_ENTER){
+            //found an answer last (because we just slapped enter). buffA probably already is answer, and we can basically do nothing.
+            buffA = answer;
             buffB = 0;
+        }else{
+            //typing a value last (because op isn't set and we haven't hit enter last), so we want to operate on buffer b.
+            buffA = buffB;
+            buffB = 0;
+            answer = buffA;
         }
+
     }
+
+
     operator = newOp;
 }
 
@@ -233,31 +235,44 @@ oled_rotation_t oled_init_user(oled_rotation_t rotation){
 
 void oled_print_double(double val)
 {
-    int whole = (int)lastAnswer;
-    int fraction = (int)(lastAnswer*10000);
-    fraction = fraction-(whole *10000);
+    int whole = (int)val;
+    int fraction = (int)(val*1000);
+    fraction = fraction-(whole *1000);
+
+    //set fraction to abs(fraction). because -3 / 2 is not equal to "-1.-5".
+    fraction = fraction < 0 ? -fraction : fraction;
 
     if(fraction == 0)
     {
         snprintf(ansLine,sizeof(ansLine),"%d",whole);//works when whole is 0 too.
     }else if(whole == 0)
     {
-        snprintf(ansLine,sizeof(ansLine),".%d",fraction);
+        if(fraction % 1000 == 0)
+        {
+            snprintf(ansLine,sizeof(ansLine),".%d",fraction/1000);
+        }else if(fraction % 100 == 0)
+        {
+            snprintf(ansLine,sizeof(ansLine),".%d",fraction/100);
+        }else if(fraction % 10 == 0)
+        {
+            snprintf(ansLine,sizeof(ansLine),".%d",fraction/10);
+        }
+        else
+        {
+            snprintf(ansLine,sizeof(ansLine),".%d",fraction);
+        }
     }
     else{
-        //fraction for .5 would be 50000
-        if(fraction % 10000 == 0)
+        //I love copy and pasting code, it's my favorite hobby.
+        if(fraction % 1000 == 0)
         {
-            snprintf(ansLine,sizeof(ansLine),"%d.%1d",whole,fraction);
-        }else if(fraction % 100000 == 0)
+            snprintf(ansLine,sizeof(ansLine),"%d.%d",whole,fraction/1000);
+        }else if(fraction % 100 == 0)
         {
-            snprintf(ansLine,sizeof(ansLine),"%d.%2d",whole,fraction);
-        }else if(fraction % 1000000 == 0)
+            snprintf(ansLine,sizeof(ansLine),"%d.%d",whole,fraction/100);
+        }else if(fraction % 10 == 0)
         {
-            snprintf(ansLine,sizeof(ansLine),"%d.%3d",whole,fraction);
-        }else if(fraction % 10000000 == 0)
-        {
-            snprintf(ansLine,sizeof(ansLine),"%d.%4d",whole,fraction);
+            snprintf(ansLine,sizeof(ansLine),"%d.%d",whole,fraction/10);
         }
         else
         {
@@ -270,24 +285,29 @@ void oled_print_double(double val)
 // Used to draw on to the oled screen
 bool oled_task_user(void) {
 
-    snprintf(aLine,sizeof(aLine),"%ld",(uint32_t)buffA);
-    oled_write_ln(aLine,false);
+    // snprintf(aLine,sizeof(aLine),"%ld",(uint32_t)buffA);
+    // oled_write_ln(aLine,false);
+    oled_print_double(buffA);
 
     snprintf(oLine,sizeof(oLine),"%c    ",operator);
     oled_write_ln(oLine,false);
 
-    snprintf(bLine,sizeof(bLine),"%ld",(uint32_t)buffB);
-    oled_write_ln(bLine,false);
+    // snprintf(bLine,sizeof(bLine),"%ld",(uint32_t)buffB);
+    // oled_write_ln(bLine,false);
+    oled_print_double(buffB);
+
 
     oled_write_ln("_____", false);
 
     //best guess, this isn't working because math library isn't linked?
     //and to do that... is a lot just for displaying numbers
     // oled_print_double(lastAnswer);
-    snprintf(bLine,sizeof(bLine),"%ld",(uint32_t)lastAnswer);
-    oled_write_ln(bLine,false);
+    // snprintf(bLine,sizeof(bLine),"%ld",(uint32_t)answer);
+    // oled_write_ln(bLine,false);
 
-    oled_write_ln("     ", false);
+    oled_print_double(answer);
+
+    // oled_write_ln("     ", false);
     oled_write_ln("     ", false);
     if(normalKeypad)
     {
