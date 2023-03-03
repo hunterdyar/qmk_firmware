@@ -52,11 +52,17 @@ char bLine [16];
 char oLine [16];
 char ansLine [16];
 bool normalKeypad = true;
+int placeEntry = 0;
 
 uint16_t lastKeycode;
 void enterNumber(int num)
 {
-    *currentBuffer = ((*currentBuffer)*10) + num;
+    if(placeEntry == 0){
+        *currentBuffer = ((*currentBuffer)*10) + num;
+    }else{
+        *currentBuffer = (*currentBuffer) + (num * (1/(pow(10,placeEntry))));
+        placeEntry++;
+    }
 }
 
 void clear(void)
@@ -66,6 +72,7 @@ void clear(void)
     operator = ' ';
     currentBuffer = &buffB;
     answer = 0;
+    placeEntry = 0;
 }
 
 void calculate(void)
@@ -92,12 +99,14 @@ void calculate(void)
         buffA = buffB;
         answer = buffB;
         buffB = 0;
+        placeEntry = 0;
         return;
     }
 
     buffA = answer;
     buffB = 0;
     operator = ' ';
+    placeEntry = 0;
 }
 void setOperator(char newOp)
 {
@@ -179,6 +188,15 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         enterNumber(0);
       }
       break;
+     case KC_KP_DOT:
+      if (record->event.pressed) {
+        if(placeEntry == 0)
+        {
+            placeEntry++;
+        }
+        //no else. placeEntry is only non-zero when we are already entering decimals. so we just ignore extra dots. "1....3" -> "1.3".
+      }
+      break;
     case KC_KP_ENTER:
         // Do the calculation
         if (record->event.pressed) {
@@ -233,7 +251,7 @@ oled_rotation_t oled_init_user(oled_rotation_t rotation){
     return OLED_ROTATION_270;
 }
 
-void oled_print_double(double val)
+void oled_print_double(double val, bool forceDot)
 {
     int whole = (int)val;
     int fraction = (int)(val*1000);
@@ -244,7 +262,16 @@ void oled_print_double(double val)
 
     if(fraction == 0)
     {
-        snprintf(ansLine,sizeof(ansLine),"%d",whole);//works when whole is 0 too.
+        if(forceDot)
+        {
+            if(whole == 0){
+                snprintf(ansLine,sizeof(ansLine),".");
+            }else{
+                snprintf(ansLine,sizeof(ansLine),"%d.",whole);
+            }
+        }else{
+            snprintf(ansLine,sizeof(ansLine),"%d",whole);//works when whole is 0 too.
+        }
     }else if(whole == 0)
     {
         if(fraction % 1000 == 0)
@@ -287,14 +314,14 @@ bool oled_task_user(void) {
 
     // snprintf(aLine,sizeof(aLine),"%ld",(uint32_t)buffA);
     // oled_write_ln(aLine,false);
-    oled_print_double(buffA);
+    oled_print_double(buffA,false);
 
     snprintf(oLine,sizeof(oLine),"%c    ",operator);
     oled_write_ln(oLine,false);
 
     // snprintf(bLine,sizeof(bLine),"%ld",(uint32_t)buffB);
     // oled_write_ln(bLine,false);
-    oled_print_double(buffB);
+    oled_print_double(buffB,placeEntry>0);
 
 
     oled_write_ln("_____", false);
@@ -305,7 +332,7 @@ bool oled_task_user(void) {
     // snprintf(bLine,sizeof(bLine),"%ld",(uint32_t)answer);
     // oled_write_ln(bLine,false);
 
-    oled_print_double(answer);
+    oled_print_double(answer,false);
 
     // oled_write_ln("     ", false);
     oled_write_ln("     ", false);
