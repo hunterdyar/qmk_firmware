@@ -45,7 +45,6 @@ bool encoder_update_user(uint8_t index, bool clockwise) {
 double buffA = 0;
 char operator = ' ';
 double buffB = 0;
-double* currentBuffer = &buffB;
 double answer;
 char aLine [16];
 char bLine [16];
@@ -58,9 +57,9 @@ uint16_t lastKeycode;
 void enterNumber(int num)
 {
     if(placeEntry == 0){
-        *currentBuffer = ((*currentBuffer)*10) + num;
+        buffB = ((buffB)*10) + num;
     }else{
-        *currentBuffer = (*currentBuffer) + (num * (1/(pow(10,placeEntry))));
+        buffB = (buffB) + (num * (1/(pow(10,placeEntry))));
         placeEntry++;
     }
 }
@@ -70,7 +69,6 @@ void clear(void)
     buffA = 0;
     buffB = 0;
     operator = ' ';
-    currentBuffer = &buffB;
     answer = 0;
     placeEntry = 0;
 }
