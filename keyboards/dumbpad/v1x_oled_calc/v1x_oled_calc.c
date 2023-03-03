@@ -128,7 +128,7 @@ void setOperator(char newOp)
 
     }
 
-
+    placeEntry = 0;
     operator = newOp;
 }
 
@@ -249,11 +249,15 @@ oled_rotation_t oled_init_user(oled_rotation_t rotation){
     return OLED_ROTATION_270;
 }
 
-void oled_print_double(double val, bool forceDot)
+//return the number of chars printed.
+//forceDot will draw the "." even if its not clear (like when we first tap "." and the buffer is still "0").
+int oled_print_double(double val, bool forceDot)
 {
+    int chars = 0;
     int whole = (int)val;
-    int fraction = (int)(val*1000);
-    fraction = fraction-(whole *1000);
+    int places = (whole != 0) ? 1000 : 10000;//one extra place for showing ".4444" instead of "0.444"
+    int fraction = (int)(val*places);
+    fraction = fraction-(whole *places);
 
     //set fraction to abs(fraction). because -3 / 2 is not equal to "-1.-5".
     fraction = fraction < 0 ? -fraction : fraction;
@@ -263,99 +267,97 @@ void oled_print_double(double val, bool forceDot)
         if(forceDot)
         {
             if(whole == 0){
-                snprintf(ansLine,sizeof(ansLine),".");
+                chars = snprintf(ansLine,sizeof(ansLine),".");
             }else{
-                snprintf(ansLine,sizeof(ansLine),"%d.",whole);
+                chars = snprintf(ansLine,sizeof(ansLine),"%d.",whole);
             }
         }else{
-            snprintf(ansLine,sizeof(ansLine),"%d",whole);//works when whole is 0 too.
+            chars = snprintf(ansLine,sizeof(ansLine),"%d",whole);//works when whole is 0 too.
         }
     }else if(whole == 0)
     {
-        if(fraction % 1000 == 0)
+        if(fraction % 10000 == 0)
         {
-            snprintf(ansLine,sizeof(ansLine),".%d",fraction/1000);
+            chars = snprintf(ansLine,sizeof(ansLine),".%d",fraction/10000);
+        }else if(fraction % 1000 == 0)
+        {
+            chars = snprintf(ansLine,sizeof(ansLine),".%d",fraction/1000);
         }else if(fraction % 100 == 0)
         {
-            snprintf(ansLine,sizeof(ansLine),".%d",fraction/100);
+            chars = snprintf(ansLine,sizeof(ansLine),".%d",fraction/100);
         }else if(fraction % 10 == 0)
         {
-            snprintf(ansLine,sizeof(ansLine),".%d",fraction/10);
+            chars = snprintf(ansLine,sizeof(ansLine),".%d",fraction/10);
         }
         else
         {
-            snprintf(ansLine,sizeof(ansLine),".%d",fraction);
+            chars = snprintf(ansLine,sizeof(ansLine),".%d",fraction);
         }
     }
     else{
         //I love copy and pasting code, it's my favorite hobby.
         if(fraction % 1000 == 0)
         {
-            snprintf(ansLine,sizeof(ansLine),"%d.%d",whole,fraction/1000);
+            chars = snprintf(ansLine,sizeof(ansLine),"%d.%d",whole,fraction/1000);
         }else if(fraction % 100 == 0)
         {
-            snprintf(ansLine,sizeof(ansLine),"%d.%d",whole,fraction/100);
+            chars = snprintf(ansLine,sizeof(ansLine),"%d.%d",whole,fraction/100);
         }else if(fraction % 10 == 0)
         {
-            snprintf(ansLine,sizeof(ansLine),"%d.%d",whole,fraction/10);
+            chars = snprintf(ansLine,sizeof(ansLine),"%d.%d",whole,fraction/10);
         }
         else
         {
-            snprintf(ansLine,sizeof(ansLine),"%d.%d",whole,fraction);
+            chars = snprintf(ansLine,sizeof(ansLine),"%d.%d",whole,fraction);
         }
     }
+    //write the number
     oled_write_ln(ansLine,false);
+
+    //print the padding too.
+    if(chars < 5)
+    {
+        // snprintf(oLine,sizeof(oLine),"--%d",chars);
+        // oled_write_ln(oLine,false);
+        oled_write_ln("    ",false);
+    }
+
+    return chars;
 }
 
 // Used to draw on to the oled screen
 bool oled_task_user(void) {
-
-    // snprintf(aLine,sizeof(aLine),"%ld",(uint32_t)buffA);
-    // oled_write_ln(aLine,false);
-    oled_print_double(buffA,false);
-
+    int totalChars = 0;
+    int pushed = 0;
+    totalChars += oled_print_double(buffA,false);
+    pushed += totalChars >= 10 ? 1 : 0;
+    //print operator
     snprintf(oLine,sizeof(oLine),"%c    ",operator);
     oled_write_ln(oLine,false);
 
-    // snprintf(bLine,sizeof(bLine),"%ld",(uint32_t)buffB);
     // oled_write_ln(bLine,false);
-    oled_print_double(buffB,placeEntry>0);
-
+    totalChars =  oled_print_double(buffB,placeEntry>0);
+    pushed += totalChars >= 10 ? 1 : 0;
 
     oled_write_ln("_____", false);
 
-    //best guess, this isn't working because math library isn't linked?
-    //and to do that... is a lot just for displaying numbers
-    // oled_print_double(lastAnswer);
-    // snprintf(bLine,sizeof(bLine),"%ld",(uint32_t)answer);
-    // oled_write_ln(bLine,false);
+    totalChars = oled_print_double(answer,false);
+    pushed += totalChars >= 10 ? 1 : 0;
 
-    oled_print_double(answer,false);
-
-    // oled_write_ln("     ", false);
-    oled_write_ln("     ", false);
-    if(normalKeypad)
+    //total lines
+    pushed = 3-pushed;//padd 3, 2 or 1 lines depending on whats been done above.
+    for(int i = 0;i<pushed;i++)
     {
-      oled_write_ln("calcy", false);
-      oled_write_ln("nmpad", false);
-    }else{
-      oled_write_ln("calcy", false);
-      oled_write_ln("only ", false);
+        oled_write_ln("    ", false);
     }
 
-    // oled_write_char(operator,false);
-    // oled_advance_page(true);
 
-    // oled_set_cursor(0, 1);
-    // sprintf(bLine,"b %ld",buffB);
-    // oled_write(bLine,false);
-
-    // // sprintf(displayLineBuffer,"------");//oled_max_chars();
-    // // oled_write(displayLineBuffer,false);
-
-    // oled_set_cursor(0, 3);
-    // sprintf(ansLine,"%ld",lastAnswer);
-    // oled_write_ln(ansLine,true);
+    if(normalKeypad)
+    {
+      oled_write_ln("=   #", false);
+    }else{
+      oled_write_ln("=   .", false);
+    }
 
     return false;
 }
