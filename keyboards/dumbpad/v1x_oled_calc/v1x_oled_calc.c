@@ -51,7 +51,10 @@ char bLine [16];
 char oLine [16];
 char ansLine [16];
 bool normalKeypad = true;
+// bool dividedByZero = false;
 int placeEntry = 0;
+
+static uint16_t zero_timer = 9999;//initialize higher than timer so frown doesn't appear on boot
 
 uint16_t lastKeycode;
 void enterNumber(int num)
@@ -89,6 +92,8 @@ void calculate(void)
         if(buffB != 0){
             answer = buffA / buffB;
         }else{
+            // dividedByZero = true;
+            zero_timer = timer_read();
             clear();
             return;
         }
@@ -325,8 +330,12 @@ int oled_print_double(double val, bool forceDot)
     return chars;
 }
 
+
+
 // Used to draw on to the oled screen
 bool oled_task_user(void) {
+    //how do we make this not happen on boot without a second timer?
+
     int totalChars = 0;
     int pushed = 0;
     totalChars += oled_print_double(buffA,false);
@@ -341,9 +350,13 @@ bool oled_task_user(void) {
 
     oled_write_ln("_____", false);
 
+   if(timer_elapsed(zero_timer) < 750){
+        //You tried to divide by zero. :(
+        oled_write_ln(" :(  ", false);
+   }else{
     totalChars = oled_print_double(answer,false);
     pushed += totalChars >= 10 ? 1 : 0;
-
+   }
     //total lines
     pushed = 3-pushed;//padd 3, 2 or 1 lines depending on whats been done above.
     for(int i = 0;i<pushed;i++)
