@@ -51,7 +51,7 @@ char bLine [16];
 char oLine [16];
 char ansLine [16];
 calc_states state = BOTH;
-// bool dividedByZero = false;
+bool dividedByZero = false;
 int placeEntry = 0;
 
 static uint16_t zero_timer = 9999;//initialize higher than timer so frown doesn't appear on boot
@@ -92,7 +92,7 @@ void calculate(void)
         if(buffB != 0){
             answer = buffA / buffB;
         }else{
-            // dividedByZero = true;
+            dividedByZero = true;//we do both because the zero timer cycles when the integer overflows.
             zero_timer = timer_read();
             clear();
             return;
@@ -372,12 +372,14 @@ bool oled_task_user(void) {
 
     oled_write_ln("_____", false);
 
-   if(timer_elapsed(zero_timer) < 750){
+   if(dividedByZero && timer_elapsed(zero_timer) < 750){
         //You tried to divide by zero. :(
         oled_write_ln(" :(  ", false);
+        dividedByZero = true;
    }else{
-    totalChars = oled_print_double(answer,false);
-    pushed += totalChars >= 10 ? 1 : 0;
+        totalChars = oled_print_double(answer,false);
+        pushed += totalChars >= 10 ? 1 : 0;
+        dividedByZero = false;
    }
     //total lines
     pushed = 3-pushed;//padd 3, 2 or 1 lines depending on whats been done above.
