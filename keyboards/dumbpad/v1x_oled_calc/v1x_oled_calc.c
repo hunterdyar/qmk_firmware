@@ -246,12 +246,18 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                     state = CALCULATOR;
                 }else if(state == CALCULATOR)
                 {
-                    state = NUMPAD;
-                    oled_off();
-                }else if(state == NUMPAD)
+                    clear();
+                    state = HEX_CONVERT;
+                    oled_on();
+                }else if(state == HEX_CONVERT)
                 {
                     clear();
                     oled_on();
+                    state = NUMPAD;
+                }else if(state == NUMPAD)
+                {
+                    clear();
+                    oled_off();
                     state = BOTH;
                 }
           }
@@ -349,6 +355,8 @@ int oled_print_double(double val, bool forceDot)
 
 // Used to draw on to the oled screen
 bool oled_task_user(void) {
+    int totalChars = 0;
+    int pushed = 0;
     //how do we make this not happen on boot without a second timer?
     if(state == NUMPAD)
     {
@@ -356,10 +364,35 @@ bool oled_task_user(void) {
         //This might be increasing power draw, since it's less idle than ... idle. Its a point to re-investigate in the future.
         oled_off();
         return false;
+    }else if(state == HEX_CONVERT)
+    {
+        totalChars = oled_print_double(buffB,placeEntry>0);
+
+        oled_write_ln("_____", false);
+        snprintf(bLine,sizeof(bLine),"%X\n",(int)buffB);
+        oled_write_ln(bLine,false);
+
+        oled_write_ln("_____", false);
+        oled_write_ln("    ", false);
+
+        //top row of binary
+        int bin = (uint32_t)buffB;
+        snprintf(bLine,sizeof(bLine),"%d%d%d%d",(bin >> 7) & 1, (bin >> 6) & 1, (bin >> 5) & 1, (bin >> 4) & 1);
+        oled_write_ln(bLine,false);
+        //second row of binary
+        snprintf(bLine,sizeof(bLine),"%d%d%d%d",(bin >> 3) & 1, (bin >> 2) & 1, (bin >> 1) & 1, (bin >> 0) & 1);
+        oled_write_ln(bLine,false);
+
+        if(totalChars < 10){
+            oled_write_ln("    ", false);
+        }
+        oled_write_ln("    ", false);
+        oled_write_ln("[hex]", false);
+
+        return false;
     }
 
-    int totalChars = 0;
-    int pushed = 0;
+
     totalChars += oled_print_double(buffA,false);
     pushed += totalChars >= 10 ? 1 : 0;
     //print operator
@@ -367,7 +400,7 @@ bool oled_task_user(void) {
     oled_write_ln(oLine,false);
 
     // oled_write_ln(bLine,false);
-    totalChars =  oled_print_double(buffB,placeEntry>0);
+    totalChars = oled_print_double(buffB,placeEntry>0);
     pushed += totalChars >= 10 ? 1 : 0;
 
     oled_write_ln("_____", false);
@@ -375,6 +408,7 @@ bool oled_task_user(void) {
    if(dividedByZero && timer_elapsed(zero_timer) < 750){
         //You tried to divide by zero. :(
         oled_write_ln(" :(  ", false);
+        //dont need to change pushed.
         dividedByZero = true;
    }else{
         totalChars = oled_print_double(answer,false);

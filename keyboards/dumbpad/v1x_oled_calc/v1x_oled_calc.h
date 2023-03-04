@@ -19,8 +19,8 @@
 typedef enum {
     BOTH,//both actions
     CALCULATOR,//only calculator
-    NUMPAD//only numpad
-    //TODO: HEX CONVERT
+    NUMPAD,//only numpad
+    HEX_CONVERT
 } calc_states;
 
 enum calc_keycodes {
