@@ -50,7 +50,7 @@ char aLine [16];
 char bLine [16];
 char oLine [16];
 char ansLine [16];
-bool normalKeypad = true;
+calc_states state = BOTH;
 // bool dividedByZero = false;
 int placeEntry = 0;
 
@@ -136,8 +136,6 @@ void setOperator(char newOp)
     placeEntry = 0;
     operator = newOp;
 }
-
-
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
   switch (keycode) {
@@ -238,14 +236,31 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         break;
     case CALC_TOGGLE_PAD:
           if (record->event.pressed) {
-                normalKeypad = !normalKeypad;
+                //this should be a switch statement or clever int thing.
+                if(state == BOTH)
+                {   //we never actually turned off the calculator functions, we just disabled the screen.
+                    //So it could have gibberish or PIN numbers or whathaveyou on display. We must clear.
+                    //true below, not here, but planning future refactor where push+turn the pot changes modes in either direction.
+                    clear();
+                    oled_on();
+                    state = CALCULATOR;
+                }else if(state == CALCULATOR)
+                {
+                    state = NUMPAD;
+                    oled_off();
+                }else if(state == NUMPAD)
+                {
+                    clear();
+                    oled_on();
+                    state = BOTH;
+                }
           }
         break;
     default:
       break; // Process all other keycodes normally
   }
   lastKeycode = keycode;
-  return normalKeypad;
+  return ((state == NUMPAD) || (state == BOTH));//be a numpad, continue processing.
 }
 
 //rotate! ignore errors here it doesnt know about oled....h
@@ -335,6 +350,13 @@ int oled_print_double(double val, bool forceDot)
 // Used to draw on to the oled screen
 bool oled_task_user(void) {
     //how do we make this not happen on boot without a second timer?
+    if(state == NUMPAD)
+    {
+        //oled keeps turning itself back on? idk why that's happening and this is my fix.
+        //This might be increasing power draw, since it's less idle than ... idle. Its a point to re-investigate in the future.
+        oled_off();
+        return false;
+    }
 
     int totalChars = 0;
     int pushed = 0;
@@ -365,10 +387,10 @@ bool oled_task_user(void) {
     }
 
 
-    if(normalKeypad)
+    if(state == BOTH)
     {
       oled_write_ln("=   #", false);
-    }else{
+    }else{//no need for if-calc, the screen will be off for numpad only. (ed: well...)
       oled_write_ln("=   .", false);
     }
 

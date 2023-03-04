@@ -16,6 +16,12 @@
 #pragma once
 #include "quantum.h"
 
+typedef enum {
+    BOTH,//both actions
+    CALCULATOR,//only calculator
+    NUMPAD//only numpad
+    //TODO: HEX CONVERT
+} calc_states;
 
 enum calc_keycodes {
   CALC_TOGGLE_PAD = SAFE_RANGE,
